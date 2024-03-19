@@ -64,7 +64,134 @@ void Write(int address, uint32_t data);
   */
 int main(void)
 {
-  
+    /* Configure the system clock */
+  RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	RCC->APB1ENR  |= RCC_APB1ENR_I2C2EN;
+  SystemClock_Config();
+
+	GPIOB->MODER |= (1<<23) | (1<<27) | (1<<28);
+	GPIOB->MODER &= ~((1<<22)| (1<<26) | (1<<29));
+	GPIOB->OTYPER |= (1<<11) | (1<<13);
+	GPIOB->OTYPER &= ~(1<<14);
+	GPIOB->AFR[1] |= (1<<GPIO_AFRH_AFSEL11_Pos);
+	GPIOB->AFR[1] |= (5<<GPIO_AFRH_AFSEL13_Pos);
+	GPIOC->MODER |= (1<<0);
+	GPIOC->MODER &= ~(1<<1);
+	GPIOC->OTYPER &= ~(1<<0);
+	
+	GPIOB->ODR |= (1<<14);
+	GPIOC->ODR |= (1<<0);
+	
+	I2C2->TIMINGR |= (1<<28) | (13<<0) | (0xF<<8) | (2<<16)
+								| (4<<20);
+	I2C2->CR1 |= (1<<0);
+	
+	I2C2->CR2 &= ~((0x7F << 16) | (0x3FF << 0));
+	I2C2->CR2 |= (0x69<<1); // Slave address = 0x69
+	I2C2->CR2 |= (1<<16); // Transmit 1 byte
+	I2C2->CR2 &= ~(1<<10); // Set to write
+	I2C2->CR2 |= (1<<13); // Start
+	
+	// Configure the leds
+	GPIOC->MODER |= (1<<12) | (1<<14) | (1<<16) | (1<<18);
+	GPIOC->MODER &= ~((1<<13) | (1<<15) | (1<<17) | (1<<19));
+	GPIOC->OTYPER &= ~((1<<6) | (1<<7) | (1<<8) | (1<<9));
+	GPIOC->OSPEEDR &= ~((1<<12) | (1<<14) | (1<<16) | (1<<18));
+	GPIOC->PUPDR &= ~((1<<12) | (1<<14) | (1<<16) | (1<<18)
+									| (1<<13) | (1<<15) | (1<<17) | (1<<19));
+	GPIOC->OSPEEDR &= ~((1<<0) | (1<<1));
+
+	GPIOC->ODR &= ~((1<<6) | (1<<7) | (1<<8) | (1<<9));
+	
+/*
+	while(!(I2C2->ISR&I2C_ISR_NACKF) && !(I2C2->ISR&I2C_ISR_TXIS))
+	{
+	}
+	
+	if(I2C2->ISR&I2C_ISR_NACKF)
+	{
+		GPIOC->ODR ^= (1<<6);
+	}
+	else
+	{
+		I2C2->TXDR = 0x0F;
+		while(!(I2C2->ISR&I2C_ISR_TC))
+		{
+		}
+		
+		//GPIOC->ODR ^= (1<<8);
+		
+		I2C2->CR2 &= ~((0x7F << 16) | (0x3FF << 0));
+		I2C2->CR2 |= (0x69<<1); // Slave address = 0x69
+		I2C2->CR2 |= (1<<16); // Transmit 1 byte
+		I2C2->CR2 |= (1<<10); // Set to read
+		I2C2->CR2 |= (1<<13); // Start
+		
+		while(!(I2C2->ISR&I2C_ISR_NACKF) && !(I2C2->ISR&I2C_ISR_RXNE))
+	{
+	}
+		if(I2C2->ISR&I2C_ISR_NACKF)
+		{
+			GPIOC->ODR ^= (1<<6);
+		}
+		else
+		{
+			while(!(I2C2->ISR&I2C_ISR_TC))
+			{
+			}
+			
+			if((I2C2->RXDR)==0xD3)
+				{
+					GPIOC->ODR ^= (1<<9);
+				}
+				else
+				{
+					GPIOC->ODR ^= (1<<6);
+				}
+				I2C2->CR2 |= (1<<14);
+		
+		}
+	}
+	*/
+	
+	/*
+	Write(0x69, 0x0F);
+	uint32_t result = Read();
+	
+	if((result)==0xD3)
+				{
+					GPIOC->ODR ^= (1<<9);
+				}
+				else
+				{
+					GPIOC->ODR ^= (1<<6);
+				}
+*/
+				
+	Write(0x69, 0x20);
+	uint32_t ctrl = Read();
+	ctrl |= (1<<3);
+	Write(0x69, 0x20);
+	Write(0x69, ctrl);
+		
+	Write(0x69, 0x20);				
+	uint32_t test = Read();
+				if((test)==0b00000111)
+				{
+					GPIOC->ODR ^= (1<<8);
+				}
+				else if((test)==ctrl)
+				{
+					GPIOC->ODR ^= (1<<9);
+				}
+				else
+				{
+					GPIOC->ODR ^= (1<<6);
+				}
+				
+				
+	I2C2->CR2 |= (1<<14);
 				
   while (1)
   {
