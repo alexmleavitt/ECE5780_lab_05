@@ -48,7 +48,7 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 uint32_t Read();
-void Write(int address, uint32_t data);
+void Write(int bytes, uint32_t address, uint32_t data);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -64,7 +64,7 @@ void Write(int address, uint32_t data);
   */
 int main(void)
 {
-    /* Configure the system clock */
+  /* Configure the system clock */
   RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	RCC->APB1ENR  |= RCC_APB1ENR_I2C2EN;
@@ -156,7 +156,7 @@ int main(void)
 	*/
 	
 	/*
-	Write(0x69, 0x0F);
+	Write(1, 0x0F, 0);
 	uint32_t result = Read();
 	
 	if((result)==0xD3)
@@ -168,14 +168,15 @@ int main(void)
 					GPIOC->ODR ^= (1<<6);
 				}
 */
-				
-	Write(0x69, 0x20);
+	
+	
+	Write(1, 0x20, 0);
 	uint32_t ctrl = Read();
 	ctrl |= (1<<3);
-	Write(0x69, 0x20);
-	Write(0x69, ctrl);
+	Write(2, 0x20, ctrl);
 		
-	Write(0x69, 0x20);				
+		/* //Check that the register is being changed
+	Write(1, 0x20, 0);				
 	uint32_t test = Read();
 				if((test)==0b00000111)
 				{
@@ -189,14 +190,20 @@ int main(void)
 				{
 					GPIOC->ODR ^= (1<<6);
 				}
+				*/
 				
-				
-	I2C2->CR2 |= (1<<14);
+	
+
 				
   while (1)
   {
+		HAL_Delay(100);
+		
+		
    
   }
+	
+	I2C2->CR2 |= (1<<14);
   /* USER CODE END 3 */
 }
 
@@ -264,12 +271,12 @@ uint32_t Read()
 	
 }
 
-void Write(int address, uint32_t data)
+void Write(int bytes, uint32_t address, uint32_t data)
 {
 	
 	I2C2->CR2 &= ~((0x7F << 16) | (0x3FF << 0));
-	I2C2->CR2 |= (address<<1); // Slave address = 0x69
-	I2C2->CR2 |= (1<<16); // Transmit 1 byte
+	I2C2->CR2 |= (0x69<<1); // Slave address = 0x69
+	I2C2->CR2 |= (bytes<<16); // Transmit bytes
 	I2C2->CR2 &= ~(1<<10); // Set to write
 	I2C2->CR2 |= (1<<13); // Start
 	
@@ -283,8 +290,17 @@ void Write(int address, uint32_t data)
 	}
 	else
 	{
-		I2C2->TXDR = data;
+		I2C2->TXDR = address;
 	}
+	
+	if(bytes > 1){
+		while(!(I2C2->ISR&I2C_ISR_TXIS))
+			{
+			}
+			
+			I2C2->TXDR = data;
+	}
+		
 	while(!(I2C2->ISR&I2C_ISR_TC))
 		{
 		}
