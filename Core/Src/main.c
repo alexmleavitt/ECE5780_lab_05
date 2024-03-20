@@ -47,7 +47,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-uint32_t Read();
+uint32_t Read(int bytes);
 void Write(int bytes, uint32_t address, uint32_t data);
 /* USER CODE BEGIN PFP */
 
@@ -157,7 +157,7 @@ int main(void)
 	
 	/*
 	Write(1, 0x0F, 0);
-	uint32_t result = Read();
+	uint32_t result = Read(1);
 	
 	if((result)==0xD3)
 				{
@@ -169,15 +169,15 @@ int main(void)
 				}
 */
 	
-	
+	/*
 	Write(1, 0x20, 0);
-	uint32_t ctrl = Read();
+	uint32_t ctrl = Read(1);
 	ctrl |= (1<<3);
 	Write(2, 0x20, ctrl);
 		
-		/* //Check that the register is being changed
+		 //Check that the register is being changed
 	Write(1, 0x20, 0);				
-	uint32_t test = Read();
+	uint32_t test = Read(1);
 				if((test)==0b00000111)
 				{
 					GPIOC->ODR ^= (1<<8);
@@ -190,20 +190,56 @@ int main(void)
 				{
 					GPIOC->ODR ^= (1<<6);
 				}
-				*/
+				I2C2->CR2 |= (1<<14);
+	*/			
 				
-	
+	int xVal;
+	int yVal;
+	int xAbs;
+	int yAbs;
+	int threshold = 10000;
 
 				
   while (1)
   {
-		HAL_Delay(100);
+		
+		Write(1,0xA8,0);
+		xVal = Read(2);
+		Write(1,0xAA,0);
+		yVal = Read(2);
+		
+		if((xVal>>15) == 1)
+			xAbs = (xVal^0xFFFF)+1;
+		else
+			xAbs = xVal;
+		if((yVal>>15) == 1)
+			yAbs = (yVal^0xFFFF)+1;
+		else
+			yAbs = yVal;
 		
 		
-   
+		if(xAbs > yAbs && xAbs > threshold)
+		{
+			GPIOC->ODR &= ~((1<<6) | (1<<7) | (1<<8) | (1<<9));
+			if((xVal>>15) == 1)
+				GPIOC->ODR |= (1<<8);
+			else
+				GPIOC->ODR |= (1<<9);	
+		}
+		
+		else if(yAbs > xAbs && yAbs > threshold)
+		{
+			GPIOC->ODR &= ~((1<<6) | (1<<7) | (1<<8) | (1<<9));
+			if((yVal>>15) == 1)
+				GPIOC->ODR |= (1<<7);
+			else
+				GPIOC->ODR |= (1<<6);	
+		}
+			
+   HAL_Delay(100);
+	 
   }
 	
-	I2C2->CR2 |= (1<<14);
   /* USER CODE END 3 */
 }
 
@@ -244,14 +280,16 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-uint32_t Read()
+uint32_t Read(int bytes)
 {
+	uint32_t data = 0;
 	I2C2->CR2 &= ~((0x7F << 16) | (0x3FF << 0));
 		I2C2->CR2 |= (0x69<<1); // Slave address = 0x69
-		I2C2->CR2 |= (1<<16); // Transmit 1 byte
+		I2C2->CR2 |= (bytes<<16); // Transmit 1 byte
 		I2C2->CR2 |= (1<<10); // Set to read
 		I2C2->CR2 |= (1<<13); // Start
 		
+	
 		while(!(I2C2->ISR&I2C_ISR_NACKF) && !(I2C2->ISR&I2C_ISR_RXNE))
 	{
 	}
@@ -261,13 +299,21 @@ uint32_t Read()
 		}
 		else
 		{
+			
+			data = I2C2->RXDR;
+			 if(bytes > 1)
+			 {
+				 //data = (data<<8);
+				 while(!(I2C2->ISR&I2C_ISR_RXNE)){}
+					 data = data | (I2C2->RXDR<<8);
+			 }
+			 
 			while(!(I2C2->ISR&I2C_ISR_TC))
 			{
 			}
-			
-			return I2C2->RXDR;
 		}
-		return 0;
+	
+		return data;
 	
 }
 
